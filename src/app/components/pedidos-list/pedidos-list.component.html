@@ -1,0 +1,225 @@
+<div class="page-container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <h1>Tienda Online</h1>
+    <div class="user-info" *ngIf="currentUser">
+      <span>Hola, <strong style="color: var(--primary);">{{ currentUser.nombre }}</strong> <small>({{ currentUser.rol
+          }})</small></span>
+      <button (click)="logout()" class="btn btn-danger">Cerrar Sesión</button>
+    </div>
+  </header>
+
+  <!-- LOADING STATE -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <p style="margin-top: 15px; color: var(--secondary);">Cargando tu tienda...</p>
+  </div>
+
+  <div *ngIf="!loading">
+
+    <!-- NOTIFICATIONS -->
+    <div *ngIf="mensajeExito" class="alert alert-success">
+      ✅ <strong>{{ mensajeExito === true ? '¡Operación exitosa!' : mensajeExito }}</strong>
+    </div>
+
+    <div *ngIf="mensajeError" class="alert alert-error">
+      {{ mensajeError }}
+    </div>
+
+    <!-- SECCIÓN USUARIO: NUEVA COMPRA -->
+    <section *ngIf="currentUser?.rol === 'USER'" class="card user-card">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px;">
+        <h2 style="margin: 0; color: var(--primary);">🛒 Nueva Compra</h2>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Selecciona un Producto</label>
+          <select [(ngModel)]="productoSeleccionadoId" class="form-control">
+            <option [ngValue]="null">-- Elige Producto --</option>
+            <option *ngFor="let p of listaProductos" [ngValue]="p.id" [disabled]="p.stock === 0">
+              {{ p.nombre }} - {{ p.precio }}€ {{ p.stock === 0 ? '(AGOTADO)' : '' }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" [(ngModel)]="cantidadSeleccionada" min="1" class="form-control">
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+          <button (click)="agregarAlCarrito()" class="btn btn-primary" style="width: 100%;">
+            + Añadir al Carrito
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="carrito.length > 0" class="card" style="margin-top: 20px; background: #f8fafc; border-style: dashed;">
+        <h4 style="margin-bottom: 15px;">Tu Carrito:</h4>
+        <div *ngFor="let item of carrito"
+          style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
+          <span>{{ item.cantidad }}x <strong>{{ item.producto.nombre }}</strong></span>
+          <strong>{{ item.subtotal }} €</strong>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">Total: {{ totalCarrito | number:'1.2-2' }} €</h3>
+          <button *ngIf="mostrarFinalizar" (click)="guardarPedidoFinal()" class="btn btn-primary"
+            style="padding: 12px 30px;">
+            🛒 FINALIZAR COMPRA
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN ADMIN: GESTIÓN DE PRODUCTOS -->
+    <section *ngIf="currentUser?.rol === 'ADMIN'" class="card admin-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2 style="margin: 0; color: var(--accent);">🏭 Gestión de Inventario</h2>
+        <button (click)="iniciarEdicionProducto()" class="btn btn-primary" style="background: var(--accent);">
+          + Nuevo Producto
+        </button>
+      </div>
+
+      <!-- FORMULARIO DE PRODUCTO -->
+      <div *ngIf="mostrarFormularioProducto" class="card"
+        style="margin-bottom: 30px; border: 1px solid var(--accent); background: #fffcf0;">
+        <h3 style="margin-bottom: 20px;">{{ productoEditando.id === 0 ? '✨ Crear Nuevo Producto' : '✏️ Editar Producto'
+          }}</h3>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre del Producto</label>
+            <input [(ngModel)]="productoEditando.nombre" class="form-control" placeholder="Ejem: Smartphone X">
+          </div>
+          <div class="form-group">
+            <label>Precio (€)</label>
+            <input type="number" [(ngModel)]="productoEditando.precio" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Stock Inicial</label>
+            <input type="number" [(ngModel)]="productoEditando.stock" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>URL de la Imagen</label>
+            <input [(ngModel)]="productoEditando.imagenUrl" class="form-control" placeholder="https://...">
+          </div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Descripción</label>
+            <textarea [(ngModel)]="productoEditando.descripcion" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button (click)="cancelarEdicionProducto()" class="btn btn-outline">Cancelar</button>
+          <button (click)="guardarProducto()" class="btn btn-primary" style="background: var(--accent);">Guardar
+            cambios</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Producto</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th style="text-align: right;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of listaProductos">
+              <td><span class="badge" style="background: #f1f5f9; color: var(--secondary);">#{{ p.id }}</span></td>
+              <td><strong>{{ p.nombre }}</strong></td>
+              <td>{{ p.precio }} €</td>
+              <td>
+                <span [style.color]="p.stock < 5 ? 'var(--danger)' : 'inherit'">
+                  {{ p.stock }} uds.
+                </span>
+              </td>
+              <td style="text-align: right;">
+                <button (click)="iniciarEdicionProducto(p)" class="btn btn-outline"
+                  style="padding: 5px 10px;">✏️</button>
+                <button (click)="eliminarProductoInventario(p.id)" class="btn btn-outline"
+                  style="padding: 5px 10px; color: var(--danger);">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- HISTORIAL DE PEDIDOS -->
+    <section>
+      <h2 style="margin-bottom: 25px; display: flex; align-items: center; gap: 10px;">
+        📦 Historial de Pedidos
+      </h2>
+
+      <div *ngFor="let pedido of listaPedidos" class="order-card">
+        <div class="order-header">
+          <div>
+            <span class="badge"
+              style="background: var(--primary); color: white; margin-bottom: 5px; display: inline-block;">
+              Pedido #{{ pedido.id }}
+            </span>
+            <div style="color: var(--text-muted); font-size: 0.875rem;">
+              {{ pedido.fecha | date:'medium' }}
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div *ngIf="currentUser?.rol === 'ADMIN'">
+              <select [ngModel]="pedido.estado" (ngModelChange)="cambiarEstado(pedido, $event)" class="form-control"
+                style="padding: 5px 10px; font-weight: 600; width: auto;"
+                [ngStyle]="{'color': pedido.estado === 'PENDIENTE' ? '#92400e' : pedido.estado === 'ENTREGADO' ? '#065f46' : '#991b1b'}"
+                [disabled]="pedido.estado === 'CANCELADO'">
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="ENTREGADO">ENTREGADO</option>
+                <option value="CANCELADO" disabled>CANCELADO</option>
+              </select>
+            </div>
+
+            <span *ngIf="currentUser?.rol !== 'ADMIN'" class="badge" [ngClass]="{
+                'badge-pending': pedido.estado === 'PENDIENTE',
+                'badge-delivered': pedido.estado === 'ENTREGADO',
+                'badge-cancelled': pedido.estado === 'CANCELADO'
+              }">
+              {{ pedido.estado }}
+            </span>
+
+            <button *ngIf="currentUser?.rol === 'USER' && pedido.estado === 'PENDIENTE'" (click)="editarPedido(pedido)"
+              class="btn btn-outline" title="Editar Pedido (Recalcular)">✏️</button>
+
+            <button *ngIf="currentUser?.rol === 'USER' && pedido.estado === 'PENDIENTE'"
+              (click)="cancelarPedido(pedido.id)" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;">
+              Cancelar
+            </button>
+
+            <button *ngIf="currentUser?.rol === 'ADMIN'" (click)="eliminarPedido(pedido.id)" class="btn btn-outline"
+              style="color: var(--danger);">🗑️</button>
+          </div>
+        </div>
+
+        <div class="order-body">
+          <div style="margin-bottom: 15px; font-size: 0.95rem;">
+            <div *ngFor="let d of pedido.detalles"
+              style="display: flex; justify-content: space-between; padding: 5px 0;">
+              <span>{{ d.cantidad }}x {{ d.producto.nombre }} <small style="color: var(--text-muted);">({{
+                  d.precioUnitario }} €/u)</small></span>
+              <strong>{{ d.subtotal }} €</strong>
+            </div>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid var(--border-color);">
+            <div style="color: var(--text-muted); font-size: 0.875rem;">
+              Cliente: <strong>{{ pedido.cliente.nombre }}</strong>
+            </div>
+            <h3 style="margin: 0;">Total Pedido: <span style="color: var(--primary);">{{ pedido.total }} €</span></h3>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
